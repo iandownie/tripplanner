@@ -13,9 +13,13 @@ dayRouter.get('/', function (req, res, next) {
 		if (thedays.length===0){
 			var day=new models.Day()
 			day.number=1;
-			res.json({days: [day]})
 			day.save()
+			res.json({days: [day]})
+			
 		}else{
+			thedays.sort(function(a,b){
+				return a.number-b.number;
+			})
 			res.json({
 	    	days:thedays
 	    	})
@@ -34,6 +38,7 @@ dayRouter.post('/', function (req, res, next) {
 	})
 	
 });
+
 
 
 // 	    console.log(req.body)
@@ -73,13 +78,35 @@ dayRouter.get('/:id', function (req, res, next) {
 // DELETE /days/:id
 dayRouter.delete('/:id', function (req, res, next) {
 
-models.Day.find({number: req.params.id}).remove(function(err, data){
-	// console.log(data)
-	res.sendStatus(200).end()
-})
-    
-});
+	models.Day.find({number: req.params.id}).remove(function(err, data){
+		console.log(models.Day.find({}))
 
+		models.Day.count(function(err, count){
+			if (count===0){
+				var day=new models.Day()
+				day.number=1;
+				day.save()
+				res.json({days: [day]})
+			}else{
+				models.Day.find({}).where('number').gt(req.params.id).exec(function(err, data){
+					data.forEach(function(el){
+						el.number-=1;
+						el.save();
+					})
+					models.Day.find({}).exec(function(err, data){
+						data.sort(function(a,b){
+							return a.number-b.number;
+						})
+						res.json({
+							days: data
+						})		
+					})
+				})
+			}
+
+		})
+	});
+});
 dayRouter.use('/:id', attractionRouter)
     	// 
 attractionRouter.post('/hotel', function (req, res, next) {
@@ -108,7 +135,7 @@ attractionRouter.post('/restaurants', function (req, res, next) {
 	var name=req.body.text
     models.Day.findOne({number: req.params.id}, function(err, day){
     	models.Restaurant.findOne({name: name}, function(err, restaurant){		
-            day.restaurants=restaurant._id
+            day.restaurants.push(restaurant._id)
             res.json(day)
             day.save();
         })
@@ -131,7 +158,7 @@ attractionRouter.post('/thingsToDo', function (req, res, next) {
 	var name=req.body.text
     models.Day.findOne({number: req.params.id}, function(err, day){
     	models.ThingToDo.findOne({name: name}, function(err, thingsToDo){		
-            day.thingsToDo=thingsToDo._id
+            day.thingsToDo.push(thingsToDo._id)
             res.json(day)
             day.save();
         })

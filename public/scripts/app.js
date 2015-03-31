@@ -12,11 +12,11 @@ $.ajax({
     success: function(data){
     // console.log(data.days)
        days=parseData(data.days);
-        // console.log("data:",data)
+        console.log("data:",data)
         insertDayItineraryItems(1)
         insertDayMarkers(1)
         days.forEach(function(el, index){
-            console.log("test", index)
+            // console.log("test", index)
             $('.add-day-btn').before($(createDayButton(index+1)))
             if(index===0){
                 // console.log($(this))
@@ -134,14 +134,15 @@ $.ajax({
         // console.log(days)
         days.push([]);
 
-        $newDayButton.trigger('click');
+        
         $.ajax({
              type: "POST", 
              url: "./days"
              // success: success,
              // dataType: dataType
         });
-
+        setMapBounds();
+        $newDayButton.trigger('click');
     });
 
     $('.day-buttons').on('click', '.select-day', function () {
@@ -149,7 +150,7 @@ $.ajax({
         var previousDay = currentDay;
         var thisDay = $(this).text();
         if (previousDay === thisDay) return;
-        console.log(thisDay)
+        // console.log(thisDay)
         currentDay = thisDay;
         $(this).addClass('current-day').siblings().removeClass('current-day');
         $dayHeading.text('Day ' + thisDay);
@@ -162,28 +163,49 @@ $.ajax({
 
         setMapBounds();
 
+
     });
 
     $removeDayButton.on('click', function () {
 
         removeDayMarkers(currentDay);
-        days.splice(currentDay - 1, 1);
+        // days.splice(currentDay - 1, 1);
 
         $('.select-day').eq(currentDay - 1).remove();
 
         $('.select-day').each(function (index) {
             $(this).text(index + 1);
         });
+
         $.ajax({
             type: "delete",
-            url: "./days/"+currentDay
+            url: "./days/"+currentDay,
+            success: function(data){
+            // console.log(data.days)
+               days=parseData(data.days);
+
+                $('#control-panel').find('.itinerary-item').remove();
+                $('.select-day').remove();
+                insertDayItineraryItems(1)
+                insertDayMarkers(1)
+                currentDay = 1;
+                days.forEach(function(el, index){
+                    // console.log("test", index)
+                    $('.add-day-btn').before($(createDayButton(index+1)))
+                    if(index===0){
+                        // console.log($(this))
+                        $('.add-day-btn').prev().addClass("current-day")
+                    }
+                })
+            }
         })
-        currentDay = 1;
+        
         $('.select-day').eq(0).trigger('click');
 
        
 
         setMapBounds();
+
 
     });
 
@@ -192,8 +214,8 @@ $.ajax({
            days.forEach(function(day, idx){
                var currentDay = [];
                //handle hotel
-               console.log(day)
-                if (day.hotel!==null){
+               // console.log(day)
+                if (day.hotel!==null && typeof(day.hotel)!=='undefined'){
                     var myLatlng = new google.maps.LatLng(day.hotel.place[0].location[0],day.hotel.place[0].location[1]);
                     var marker = new google.maps.Marker({
                         position: myLatlng,
@@ -206,32 +228,36 @@ $.ajax({
                                marker: marker
                                })
                 }
-               day.restaurants.forEach(function(rest, idx){
-                    var myLatlng = new google.maps.LatLng(rest.place[0].location[0],rest.place[0].location[1]);
-                    var marker = new google.maps.Marker({
-                        position: myLatlng,
-                        icon: 'images/' + getIconByType("restaurant"),
-                        // map: map,
-                        title:rest.name
-                    });
-                    currentDay.push({item: {type: 'restaurant', text: rest.name},
-                                   id: rest._id,
-                                   marker:  marker
-                                   })
-               });
-               day.thingsToDo.forEach(function(thing, idx){
-                var myLatlng = new google.maps.LatLng(thing.place[0].location[0], thing.place[0].location[1]);
-                    var marker = new google.maps.Marker({
-                        position: myLatlng,
-                        icon: 'images/' + getIconByType("activity"),
-                        // map: map,
-                        title:thing.name
-                    });
-                    currentDay.push({item: {type: 'activity', text: thing.name},
-                                   id: thing._id,
-                                   marker:  marker
-                                   })
-               });
+                if(day.restaurants!==null && typeof(day.restaurants)!=='undefined'){
+                   day.restaurants.forEach(function(rest, idx){
+                        var myLatlng = new google.maps.LatLng(rest.place[0].location[0],rest.place[0].location[1]);
+                        var marker = new google.maps.Marker({
+                            position: myLatlng,
+                            icon: 'images/' + getIconByType("restaurant"),
+                            // map: map,
+                            title:rest.name
+                        });
+                        currentDay.push({item: {type: 'restaurant', text: rest.name},
+                                       id: rest._id,
+                                       marker:  marker
+                                       })
+                   });
+                }
+                if(day.thingsToDo!==null && typeof(day.thingsToDo)!=='undefined'){
+                   day.thingsToDo.forEach(function(thing, idx){
+                    var myLatlng = new google.maps.LatLng(thing.place[0].location[0], thing.place[0].location[1]);
+                        var marker = new google.maps.Marker({
+                            position: myLatlng,
+                            icon: 'images/' + getIconByType("activity"),
+                            // map: map,
+                            title:thing.name
+                        });
+                        currentDay.push({item: {type: 'activity', text: thing.name},
+                                       id: thing._id,
+                                       marker:  marker
+                                       })
+                   });
+               }
                iterinary[idx] = currentDay;
            })
            return iterinary;
@@ -241,15 +267,17 @@ $.ajax({
     function setMapBounds() {
 
         var bounds = new google.maps.LatLngBounds();
-
+        var myLatlng= new google.maps.LatLng(40.705189, -74.009209);
         var dayItems = days[currentDay - 1];
-
-        dayItems.forEach(function (item) {
-            bounds.extend(item.marker.position);
-        });
-
-        map.fitBounds(bounds);
-
+        if(dayItems!==null && typeof(dayItems)!=='undefined' && dayItems.length!==0){
+            dayItems.forEach(function (item) {
+                bounds.extend(item.marker.position);
+            });
+            map.fitBounds(bounds);
+        }else{
+            map.setCenter(myLatlng);
+            bounds.extend(myLatlng);
+        }
     }
 
     function removeDayMarkers(dayNumber) {
@@ -273,7 +301,7 @@ $.ajax({
         //     id: day.hotel._id,
         //     marker: [day.hotel.place]
         // })
-        console.log("dayItems: ", dayItems)
+        // console.log("dayItems: ", dayItems)
         dayItems.forEach(function (item) {
             addItemToChosenList(item.item);
         });
@@ -489,5 +517,19 @@ $.ajax({
                    '</button>';
         return html;
     }
+    // function rebound () {
+    //     var myLatlng = new google.maps.LatLng(40.705189,-74.009209);
+    //     var reBounds = new google.maps.LatLngBounds();
 
+    //     if(markerArr.length) {
+    //         markerArr.forEach(function(marker){
+    //             if(marker) reBounds.extend(marker.position)
+    //         map.fitBounds(reBounds)
+    //         })
+    //     } else {
+    //         map.setCenter(myLatlng);
+    //         reBounds.extend(myLatlng);    
+    //         map.setZoom(13);
+    //     }
+    // }
 });
